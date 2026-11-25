@@ -1,0 +1,6 @@
+requests>=2.31.0
+playwright>=1.44.0
+
+# 可选：只在启用 Cloudflare R2 图床时需要（requirements 里留着不影响运行，
+# 不装也能跑，只是上传功能不可用）
+# boto3>=1.34.0

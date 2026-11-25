@@ -1,0 +1,8 @@
+# 调试产物
+debug/
+__pycache__/
+*.pyc
+
+# 本地临时
+_probe*.py
+_test/

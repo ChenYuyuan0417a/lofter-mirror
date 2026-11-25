@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>博客存档</title>
+<style>
+  :root {
+    --ink: #1b1b1b;
+    --muted: #9a9a9a;
+    --line: #ececec;
+    --bg: #ffffff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+                 "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    font-size: 17px;
+    line-height: 1.9;
+    letter-spacing: .01em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 64px 22px 120px;
+  }
+
+  .card {
+    margin-bottom: 64px;
+    padding-bottom: 56px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .card:last-child { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+
+  /* 图片区：单图整栏，多图两列瀑布，各自保留原始比例，不留空洞 */
+  .media {
+    column-gap: 6px;
+    margin: 26px 0 30px;
+  }
+  .media.multi { columns: 2; }
+  .media.single { columns: 1; }
+
+  .media img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    background: #f5f5f5;
+  }
+
+  .media a {
+    display: block;
+    break-inside: avoid;
+    margin-bottom: 6px;
+  }
+
+  /* 文字区 */
+  .title {
+    margin: 0 0 10px;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.6;
+    letter-spacing: .02em;
+  }
+
+  .date {
+    display: block;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: .08em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text p {
+    margin: 0 0 1.1em;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  @media (max-width: 640px) {
+    main { padding: 36px 18px 80px; }
+    body { font-size: 16px; }
+    .media.multi { columns: 1; }
+    .card { margin-bottom: 48px; padding-bottom: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<main id="feed"></main>
+
+<script>
+(function () {
+  var feed = document.getElementById('feed');
+
+  function el(tag, cls) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    return node;
+  }
+
+  function fmtDate(s) {
+    if (!s) return '';
+    var m = String(s).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return '';
+    return m[1] + '.' + ('0' + m[2]).slice(-2) + '.' + ('0' + m[3]).slice(-2);
+  }
+
+  function renderMedia(post) {
+    var images = (post.images || []).filter(function (u) { return typeof u === 'string' && u; });
+    if (!images.length) return null;
+    var box = el('div', 'media ' + (images.length > 1 ? 'multi' : 'single'));
+    var cap = images.length > 6 ? 6 : images.length;
+    for (var i = 0; i < cap; i++) {
+      var a = el('a');
+      a.href = images[i];
+      a.target = '_blank';
+      a.rel = 'noopener';
+      var img = el('img');
+      img.src = images[i];
+      img.alt = '';
+      img.loading = i === 0 ? 'eager' : 'lazy';
+      img.decoding = 'async';
+      img.onerror = function () { this.style.display = 'none'; };
+      a.appendChild(img);
+      box.appendChild(a);
+    }
+    return box;
+  }
+
+  function renderCard(post) {
+    var card = el('article', 'card');
+
+    if (post.title) {
+      var h = el('h2', 'title');
+      h.textContent = post.title;
+      card.appendChild(h);
+    }
+
+    var d = fmtDate(post.published_at || post.published_raw);
+    if (d) {
+      var t = el('time', 'date');
+      t.textContent = d;
+      t.dateTime = post.published_at || '';
+      card.appendChild(t);
+    }
+
+    var media = renderMedia(post);
+    if (media) card.appendChild(media);
+
+    var body = el('div', 'text');
+    var paragraphs = String(post.text || '').split(/\n{1,}/);
+    for (var i = 0; i < paragraphs.length; i++) {
+      var line = paragraphs[i].trim();
+      if (!line) continue;
+      var p = el('p');
+      p.textContent = line;
+      body.appendChild(p);
+    }
+    if (body.childNodes.length) card.appendChild(body);
+
+    return card;
+  }
+
+  function render(data) {
+    var posts = (data && data.posts) || [];
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < posts.length; i++) {
+      frag.appendChild(renderCard(posts[i]));
+    }
+    feed.appendChild(frag);
+  }
+
+  fetch('data.json', { cache: 'no-cache' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('data.json ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      var n = ((data && data.posts) || []).length;
+      if (!n) console.warn('[mirror] data.json 里没有文章（posts 为空），页面自然是空白。');
+      render(data);
+    })
+    .catch(function (err) {
+      // 访客看不到任何东西；只在浏览器控制台留一条线索，方便站长排查
+      console.error('[mirror] data.json 加载失败：', err.message);
+      console.info('[mirror] 常见原因：还没跑 Actions / data.json 没提交 / ' +
+                   '用 file:// 直接双击打开（fetch 被浏览器拦掉）');
+    });
+})();
+</script>
+
+</body>
+</html>
